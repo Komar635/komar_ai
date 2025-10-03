@@ -23,9 +23,9 @@ export function ChatMessage({
   return (
     <div className={cn(
       "chat-message group relative",
-      isUser && "user",
-      isAssistant && "assistant",
-      isSystem && "bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700"
+      isUser && "user animate-slide-in-right",
+      isAssistant && "assistant animate-slide-in-left",
+      isSystem && "system animate-fade-in-up bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700"
     )}>
       {/* Аватар и роль */}
       <div className="flex items-start space-x-3">

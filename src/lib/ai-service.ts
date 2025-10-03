@@ -1,4 +1,5 @@
 import { ChatRequest, ChatResponse } from '@/app/api/chat/route'
+import { safeLogger } from './logger'
 
 export class AIService {
   private static readonly API_ENDPOINT = '/api/chat'
@@ -49,7 +50,7 @@ export class AIService {
       return result
 
     } catch (error) {
-      console.error(`Попытка ${attempt} не удалась:`, error)
+      safeLogger.error(`Попытка ${attempt} не удалась:`, error)
 
       // Если это последняя попытка или ошибка не сетевая, пробрасываем её
       if (attempt >= this.MAX_RETRIES || !this.isRetryableError(error)) {
@@ -111,7 +112,7 @@ export class AIService {
         return data.models || []
       }
     } catch (error) {
-      console.error('Ошибка получения списка моделей:', error)
+      safeLogger.error('Ошибка получения списка моделей:', error)
     }
     
     return ['Mock API'] // Fallback

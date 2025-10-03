@@ -127,6 +127,9 @@ export const useChatStore = create<ChatStore>()(
           } else {
             root.classList.add(theme)
           }
+          
+          // Сохраняем в localStorage отдельно для мгновенного применения
+          localStorage.setItem('komair-theme', theme)
         }
       },
 
@@ -188,25 +191,40 @@ export const useChatStore = create<ChatStore>()(
         if (typeof window === 'undefined') return
         
         try {
+          // Загружаем тему
+          const savedTheme = localStorage.getItem('komair-theme') as 'light' | 'dark' | 'system' | null
+          if (savedTheme) {
+            get().setTheme(savedTheme)
+          }
+          
+          // Загружаем чаты
           const stored = localStorage.getItem(STORAGE_KEY)
           if (stored) {
             const parsed = JSON.parse(stored)
             
             // Конвертируем строки дат обратно в Date объекты
-            const chats = parsed.chats?.map((chat: any) => ({
-              ...chat,
-              createdAt: new Date(chat.createdAt),
-              updatedAt: new Date(chat.updatedAt),
-              messages: chat.messages?.map((message: any) => ({
-                ...message,
-                timestamp: new Date(message.timestamp)
-              })) || []
-            })) || []
+            const chats = parsed.chats?.map((chat: any) => {
+              // Обеспечиваем безопасность конвертации дат
+              const createdAt = chat.createdAt ? new Date(chat.createdAt) : new Date()
+              const updatedAt = chat.updatedAt ? new Date(chat.updatedAt) : new Date()
+              
+              return {
+                ...chat,
+                createdAt: isNaN(createdAt.getTime()) ? new Date() : createdAt,
+                updatedAt: isNaN(updatedAt.getTime()) ? new Date() : updatedAt,
+                messages: chat.messages?.map((message: any) => {
+                  const timestamp = message.timestamp ? new Date(message.timestamp) : new Date()
+                  return {
+                    ...message,
+                    timestamp: isNaN(timestamp.getTime()) ? new Date() : timestamp
+                  }
+                }) || []
+              }
+            }) || []
             
             set({ 
               chats,
-              currentChatId: parsed.currentChatId || null,
-              theme: parsed.theme || 'system'
+              currentChatId: parsed.currentChatId || null
             })
           }
         } catch (error) {
@@ -233,6 +251,7 @@ export const useChatStore = create<ChatStore>()(
     }),
     {
       name: STORAGE_KEY,
+      skipHydration: true,
       partialize: (state) => ({
         chats: state.chats,
         currentChatId: state.currentChatId,
