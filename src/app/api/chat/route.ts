@@ -57,10 +57,34 @@ export async function POST(request: NextRequest) {
     let attemptCount = 0
     let lastError: Error | null = null
     
+    // Проверяем, есть ли доступные провайдеры
+    if (!currentProvider) {
+      safeLogger.error('🚨 НЕТ ДОСТУПНЫХ AI ПРОВАЙДЕРОВ!')
+      return NextResponse.json(
+        { 
+          error: 'Все AI провайдеры недоступны',
+          message: 'Проверьте настройки API ключей и подключение к интернету',
+          diagnostics: process.env.NODE_ENV === 'development' ? {
+            availableProviders: providerManager.getProvidersStatus().map(p => ({ 
+              name: p.name, 
+              healthy: p.isHealthy, 
+              error: p.lastError 
+            })),
+            envVars: {
+              groqKey: process.env.GROQ_API_KEY ? '✅ Настроен' : '❌ Отсутствует',
+              hfToken: process.env.HUGGINGFACE_TOKEN ? '✅ Настроен' : '❌ Отсутствует',
+              togetherKey: process.env.TOGETHER_API_KEY ? '✅ Настроен' : '❌ Отсутствует'
+            }
+          } : undefined
+        }, 
+        { status: 503 }
+      )
+    }
+    
     safeLogger.info(`🚀 Начинаем с провайдера: ${currentProvider}`)
 
     // Пытаемся получить ответ с fallback между провайдерами
-    while (currentProvider && currentProvider !== 'mock') {
+    while (currentProvider) {
       try {
         attemptCount++
         safeLogger.info(`🚀 Попытка ${attemptCount} с провайдером: ${currentProvider}`)

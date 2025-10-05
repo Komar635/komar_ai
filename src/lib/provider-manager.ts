@@ -95,7 +95,7 @@ class ProviderManager {
   /**
    * Получить лучший доступный провайдер
    */
-  getBestAvailableProvider(): string {
+  getBestAvailableProvider(): string | null {
     for (const providerName of this.fallbackOrder) {
       const status = this.status.get(providerName)
       const config = this.providers.get(providerName)
@@ -105,8 +105,8 @@ class ProviderManager {
       }
     }
     
-    // Если ничего не доступно, возвращаем mock
-    return 'mock'
+    // Если ничего не доступно, возвращаем null вместо mock
+    return null
   }
 
   /**
