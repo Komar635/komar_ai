@@ -53,6 +53,8 @@ export async function POST(request: NextRequest) {
 
     // Определяем лучший доступный провайдер
     let currentProvider = providerManager.getBestAvailableProvider()
+    safeLogger.info(`🎯 Выбранный провайдер: ${currentProvider}`);
+    
     let response: ChatResponse
     let attemptCount = 0
     let lastError: Error | null = null
@@ -60,15 +62,21 @@ export async function POST(request: NextRequest) {
     // Проверяем, есть ли доступные провайдеры
     if (!currentProvider) {
       safeLogger.error('🚨 НЕТ ДОСТУПНЫХ AI ПРОВАЙДЕРОВ!')
+      
+      // Получаем детальную информацию о провайдерах
+      const providersStatus = providerManager.getProvidersStatus();
+      safeLogger.error('📊 Статус провайдеров:', providersStatus);
+      
       return NextResponse.json(
         { 
           error: 'Все AI провайдеры недоступны',
           message: 'Проверьте настройки API ключей и подключение к интернету',
           diagnostics: process.env.NODE_ENV === 'development' ? {
-            availableProviders: providerManager.getProvidersStatus().map(p => ({ 
+            availableProviders: providersStatus.map(p => ({ 
               name: p.name, 
               healthy: p.isHealthy, 
-              error: p.lastError 
+              error: p.lastError,
+              consecutiveFailures: p.consecutiveFailures
             })),
             envVars: {
               groqKey: process.env.GROQ_API_KEY ? '✅ Настроен' : '❌ Отсутствует',
@@ -85,6 +93,7 @@ export async function POST(request: NextRequest) {
 
     // Пытаемся получить ответ с fallback между провайдерами
     while (currentProvider) {
+      safeLogger.info(`🔄 Цикл обработки: текущий провайдер=${currentProvider}, попытка=${attemptCount}`);
       try {
         attemptCount++
         safeLogger.info(`🚀 Попытка ${attemptCount} с провайдером: ${currentProvider}`)
@@ -109,12 +118,15 @@ export async function POST(request: NextRequest) {
         
         // Проверяем, можно ли повторить с текущим провайдером
         if (providerManager.canRetryWithProvider(currentProvider, attemptCount)) {
-          safeLogger.info(`🔄 Повторная попытка с ${currentProvider}...`)
+          safeLogger.info(`🔄 Повторная попытка с ${currentProvider} через 2 секунды...`)
+          // Небольшая задержка перед повторной попыткой
+          await new Promise(resolve => setTimeout(resolve, 2000));
           continue
         }
         
         // Переключаемся на следующий провайдер
         const nextProvider = providerManager.getNextProvider(currentProvider)
+        safeLogger.info(`⏭ Следующий провайдер: ${nextProvider}`);
         if (nextProvider) {
           safeLogger.info(`🔄 Переключение на резервный провайдер: ${nextProvider}`)
           currentProvider = nextProvider

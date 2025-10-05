@@ -33,15 +33,15 @@ class ProviderManager {
         name: 'groq',
         priority: 1,
         enabled: !!process.env.GROQ_API_KEY,
-        maxRetries: 3,
-        timeout: 30000
+        maxRetries: 5, // Увеличиваем количество попыток
+        timeout: 45000 // Увеличиваем таймаут
       },
       {
         name: 'huggingface',
         priority: 2,
         enabled: true, // Всегда доступен, работает без токена
-        maxRetries: 3,
-        timeout: 60000
+        maxRetries: 5, // Увеличиваем количество попыток
+        timeout: 90000 // Увеличиваем таймаут
       },
       {
         name: 'together',
@@ -96,16 +96,22 @@ class ProviderManager {
    * Получить лучший доступный провайдер
    */
   getBestAvailableProvider(): string | null {
+    safeLogger.info(`🔍 Поиск лучшего доступного провайдера из: ${this.fallbackOrder.join(', ')}`);
+    
     for (const providerName of this.fallbackOrder) {
       const status = this.status.get(providerName)
       const config = this.providers.get(providerName)
       
+      safeLogger.info(`🔍 Проверка ${providerName}: healthy=${status?.isHealthy}, enabled=${config?.enabled}`);
+      
       if (status?.isHealthy && config?.enabled) {
+        safeLogger.info(`✅ Выбран провайдер: ${providerName}`);
         return providerName
       }
     }
     
     // Если ничего не доступно, возвращаем null вместо mock
+    safeLogger.warn(`⚠️ Нет доступных провайдеров`);
     return null
   }
 
@@ -163,11 +169,14 @@ class ProviderManager {
         status.isHealthy = false
         safeLogger.error(`❌ Провайдер ${providerName} недоступен после ${status.consecutiveFailures} попыток: ${error}`)
         
-        // Автоматическое восстановление через некоторое время
-        const retryDelay = status.consecutiveFailures >= 5 ? 10 * 60 * 1000 : 2 * 60 * 1000 // 2 или 10 минут
+        // Автоматическое восстановление через короткое время
+        const retryDelay = 30 * 1000 // 30 секунд для быстрого восстановления
         setTimeout(() => this.attemptProviderRecovery(providerName), retryDelay)
       } else {
         safeLogger.warn(`⚠️ Провайдер ${providerName} ошибка ${status.consecutiveFailures}/${config.maxRetries}: ${error}`)
+        // Даем шанс восстановиться через короткое время
+        const retryDelay = 10 * 1000 // 10 секунд
+        setTimeout(() => this.attemptProviderRecovery(providerName), retryDelay)
       }
     }
   }
@@ -210,9 +219,11 @@ class ProviderManager {
         // Если нет специальной проверки, просто сбрасываем статус
         // Реальная проверка произойдёт при следующем запросе
         const status = this.status.get(providerName)
-        if (status && status.consecutiveFailures > 0) {
-          status.consecutiveFailures = Math.max(0, status.consecutiveFailures - 1)
-          if (status.consecutiveFailures === 0) {
+        if (status) {
+          // Сбрасываем счетчик ошибок
+          status.consecutiveFailures = Math.max(0, status.consecutiveFailures - 2)
+          // Если ошибок мало, помечаем как здоровый
+          if (status.consecutiveFailures <= 1) {
             this.markProviderAsHealthy(providerName)
           }
         }
