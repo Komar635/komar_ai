@@ -43,6 +43,15 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
+    
+    // Логируем информацию о запросе для диагностики
+    safeLogger.info(`📥 Новый запрос: mode=${mode}, message=${message.substring(0, 50)}...`);
+    safeLogger.info(`🔑 Переменные окружения:`, {
+      groqKey: process.env.GROQ_API_KEY ? '✅ Настроен' : '❌ Отсутствует',
+      hfToken: process.env.HUGGINGFACE_TOKEN ? '✅ Настроен' : '❌ Отсутствует',
+      togetherKey: process.env.TOGETHER_API_KEY ? '✅ Настроен' : '❌ Отсутствует',
+      cohereKey: process.env.COHERE_API_KEY ? '✅ Настроен' : '❌ Отсутствует'
+    });
 
     // Проверяем кэш перед обращением к ИИ
     const cachedResponse = responseCache.get(message, mode)

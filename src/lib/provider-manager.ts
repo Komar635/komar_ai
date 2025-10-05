@@ -98,6 +98,28 @@ class ProviderManager {
   getBestAvailableProvider(): string | null {
     safeLogger.info(`🔍 Поиск лучшего доступного провайдера из: ${this.fallbackOrder.join(', ')}`);
     
+    // Проверяем, есть ли вообще доступные провайдеры
+    if (this.fallbackOrder.length === 0) {
+      safeLogger.error(`🚨 НЕТ ДОСТУПНЫХ ПРОВАЙДЕРОВ! Проверьте настройки API ключей.`);
+      
+      // Логируем информацию о переменных окружения
+      const envInfo = {
+        groqKey: process.env.GROQ_API_KEY ? '✅ Настроен' : '❌ Отсутствует',
+        hfToken: process.env.HUGGINGFACE_TOKEN ? '✅ Настроен' : '❌ Отсутствует',
+        togetherKey: process.env.TOGETHER_API_KEY ? '✅ Настроен' : '❌ Отсутствует',
+        cohereKey: process.env.COHERE_API_KEY ? '✅ Настроен' : '❌ Отсутствует'
+      };
+      
+      safeLogger.error(`🔑 Статус API ключей:`, envInfo);
+      
+      // Если нет API ключей, возвращаем специальную ошибку
+      if (!process.env.GROQ_API_KEY && !process.env.HUGGINGFACE_TOKEN) {
+        safeLogger.error(`🔐 КРИТИЧЕСКАЯ ОШИБКА: Не настроены API ключи!`);
+      }
+      
+      return null;
+    }
+    
     for (const providerName of this.fallbackOrder) {
       const status = this.status.get(providerName)
       const config = this.providers.get(providerName)
