@@ -28,7 +28,7 @@ class ProviderManager {
 
   private initializeProviders() {
     // Порядок приоритета провайдеров (от лучшего к худшему)
-    const configs: ProviderConfig[] = [
+    let configs: ProviderConfig[] = [
       {
         name: 'groq',
         priority: 1,
@@ -71,7 +71,18 @@ class ProviderManager {
         maxRetries: 1,
         timeout: 5000
       }
-    ]
+    ];
+
+    // Если нет настроенных API ключей, используем HuggingFace как основной провайдер
+    const hasApiKeys = process.env.GROQ_API_KEY || process.env.TOGETHER_API_KEY || process.env.COHERE_API_KEY;
+    if (!hasApiKeys) {
+      safeLogger.warn('⚠️ НЕТ НАСТРОЕННЫХ API КЛЮЧЕЙ! Используем HuggingFace как основной провайдер.');
+      // Увеличиваем приоритет HuggingFace
+      const hfConfig = configs.find(c => c.name === 'huggingface');
+      if (hfConfig) {
+        hfConfig.priority = 0; // Самый высокий приоритет
+      }
+    }
 
     configs.forEach(config => {
       this.providers.set(config.name, config)
@@ -89,7 +100,16 @@ class ProviderManager {
       .sort((a, b) => a.priority - b.priority)
       .map(config => config.name)
 
-    safeLogger.info(`🔄 Инициализированы провайдеры: ${this.fallbackOrder.join(' → ')}`)
+    // Логируем информацию о конфигурации для диагностики
+    const envInfo = {
+      groqKey: process.env.GROQ_API_KEY ? '✅ Настроен' : '❌ Отсутствует',
+      hfToken: process.env.HUGGINGFACE_TOKEN ? '✅ Настроен' : '❌ Отсутствует',
+      togetherKey: process.env.TOGETHER_API_KEY ? '✅ Настроен' : '❌ Отсутствует',
+      cohereKey: process.env.COHERE_API_KEY ? '✅ Настроен' : '❌ Отсутствует'
+    };
+    
+    safeLogger.info(`🔑 Статус API ключей:`, envInfo);
+    safeLogger.info(`🔄 Инициализированы провайдеры: ${this.fallbackOrder.join(' → ')}`);
   }
 
   /**

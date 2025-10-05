@@ -52,6 +52,29 @@ export async function POST(request: NextRequest) {
       togetherKey: process.env.TOGETHER_API_KEY ? '✅ Настроен' : '❌ Отсутствует',
       cohereKey: process.env.COHERE_API_KEY ? '✅ Настроен' : '❌ Отсутствует'
     });
+    
+    // Проверяем, есть ли доступные провайдеры
+    const providersStatus = providerManager.getProvidersStatus();
+    const enabledProviders = providersStatus.filter(p => providerManager.getProviderConfig(p.name)?.enabled);
+    safeLogger.info(`📊 Доступные провайдеры: ${enabledProviders.map(p => p.name).join(', ')}`);
+    
+    if (enabledProviders.length === 0) {
+      safeLogger.error('🚨 КРИТИЧЕСКАЯ ОШИБКА: Нет доступных провайдеров!');
+      return NextResponse.json({
+        error: 'Все AI провайдеры недоступны',
+        message: 'Сервер не настроен. Обратитесь к администратору.',
+        // Всегда показываем диагностику в этом случае
+        diagnostics: {
+          envVars: {
+            groqKey: process.env.GROQ_API_KEY ? '✅ Настроен' : '❌ Отсутствует',
+            hfToken: process.env.HUGGINGFACE_TOKEN ? '✅ Настроен' : '❌ Отсутствует',
+            togetherKey: process.env.TOGETHER_API_KEY ? '✅ Настроен' : '❌ Отсутствует',
+            cohereKey: process.env.COHERE_API_KEY ? '✅ Настроен' : '❌ Отсутствует'
+          },
+          message: 'Нет доступных провайдеров. Проверьте настройки сервера.'
+        }
+      }, { status: 503 });
+    }
 
     // Проверяем кэш перед обращением к ИИ
     const cachedResponse = responseCache.get(message, mode)
