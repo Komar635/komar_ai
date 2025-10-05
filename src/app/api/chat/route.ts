@@ -107,7 +107,12 @@ export async function POST(request: NextRequest) {
         responseCache.set(message, mode, response, currentProvider)
         
         response.processingTime = Date.now() - startTime
-        return NextResponse.json(response)
+        const nextResponse = NextResponse.json(response)
+        // Добавляем CORS заголовки
+        nextResponse.headers.set('Access-Control-Allow-Origin', '*')
+        nextResponse.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS')
+        nextResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type')
+        return nextResponse
         
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error))
@@ -159,11 +164,18 @@ export async function POST(request: NextRequest) {
       lastError: lastError?.message
     };
     
-    return NextResponse.json({
+    const nextResponse = NextResponse.json({
       error: 'Все AI провайдеры недоступны',
       message: 'Проверьте настройки API ключей и подключение к интернету',
       diagnostics: process.env.NODE_ENV === 'development' ? diagnosticInfo : undefined
-    }, { status: 503 });
+    }, { status: 503 })
+    
+    // Добавляем CORS заголовки
+    nextResponse.headers.set('Access-Control-Allow-Origin', '*')
+    nextResponse.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS')
+    nextResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type')
+    
+    return nextResponse;
     
   } catch (error) {
     safeLogger.error('Ошибка API чата:', error)
@@ -179,7 +191,7 @@ export async function POST(request: NextRequest) {
     const providersStatus = providerManager.getProvidersStatus()
     safeLogger.error('Статус провайдеров:', providersStatus)
     
-    return NextResponse.json(
+    const nextResponse = NextResponse.json(
       { 
         error: 'Произошла ошибка при обработке запроса',
         details: process.env.NODE_ENV === 'development' ? {
@@ -190,7 +202,22 @@ export async function POST(request: NextRequest) {
       },
       { status: 500 }
     )
+    
+    // Добавляем CORS заголовки
+    nextResponse.headers.set('Access-Control-Allow-Origin', '*')
+    nextResponse.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS')
+    nextResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type')
+    
+    return nextResponse
   }
+}
+
+export async function OPTIONS(request: NextRequest) {
+  const response = new NextResponse(null, { status: 204 });
+  response.headers.set('Access-Control-Allow-Origin', '*');
+  response.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
+  return response;
 }
 
 /**
@@ -328,6 +355,10 @@ async function handleHuggingFaceRequest(
         method: 'POST',
         headers,
         body: JSON.stringify(payload)
+      }).catch(error => {
+        // Обработка сетевых ошибок
+        safeLogger.error(`📡 Сетевая ошибка при подключении к HuggingFace:`, error);
+        throw new Error(`Сетевая ошибка: ${error.message}. Проверьте подключение к интернету.`);
       })
 
       if (!response.ok) {
@@ -440,6 +471,10 @@ async function handleOllamaRequest(
         num_predict: mode === 'fast' ? 200 : 500
       }
     })
+  }).catch(error => {
+    // Обработка сетевых ошибок
+    safeLogger.error(`📡 Сетевая ошибка при подключении к Ollama:`, error);
+    throw new Error(`Сетевая ошибка: ${error.message}. Проверьте, что Ollama запущен.`);
   })
 
   if (!response.ok) {
@@ -506,6 +541,10 @@ async function handleTogetherAIRequest(
       top_p: 0.9,
       repetition_penalty: 1.1
     })
+  }).catch(error => {
+    // Обработка сетевых ошибок
+    safeLogger.error(`📡 Сетевая ошибка при подключении к Together AI:`, error);
+    throw new Error(`Сетевая ошибка: ${error.message}. Проверьте подключение к интернету.`);
   })
 
   if (!response.ok) {
@@ -582,6 +621,10 @@ async function handleGroqRequest(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(requestPayload)
+  }).catch(error => {
+    // Обработка сетевых ошибок
+    safeLogger.error(`📡 Сетевая ошибка при подключении к Groq:`, error);
+    throw new Error(`Сетевая ошибка: ${error.message}. Проверьте подключение к интернету.`);
   })
   
   safeLogger.info(`📥 Groq ответ: ${response.status} ${response.statusText}`)
@@ -667,6 +710,10 @@ async function handleCohereRequest(
       k: 40,
       p: 0.9
     })
+  }).catch(error => {
+    // Обработка сетевых ошибок
+    safeLogger.error(`📡 Сетевая ошибка при подключении к Cohere:`, error);
+    throw new Error(`Сетевая ошибка: ${error.message}. Проверьте подключение к интернету.`);
   })
 
   if (!response.ok) {
