@@ -617,7 +617,7 @@ async function handleGroqRequest(
   // Groq стабильные рабочие модели (проверенные)
   const model = mode === 'fast' 
     ? 'llama-3.1-8b-instant'    // Быстрая модель - работает стабильно
-    : 'llama-3.1-8b-instant'    // Используем ту же быструю модель для глубокого режима
+    : 'llama-3.1-70b-versatile' // Более мощная модель для глубокого режима
   
   const messages = [
     {
@@ -646,59 +646,83 @@ async function handleGroqRequest(
     maxTokens: requestPayload.max_tokens 
   })
 
-  const response = await fetch(GROQ_API_URL, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${GROQ_TOKEN}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(requestPayload)
-  }).catch(error => {
-    // Обработка сетевых ошибок
-    safeLogger.error(`📡 Сетевая ошибка при подключении к Groq:`, error);
-    throw new Error(`Сетевая ошибка: ${error.message}. Проверьте подключение к интернету.`);
-  })
+  // Повторные попытки при сетевых ошибках
+  let lastError: Error | null = null;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const response = await fetch(GROQ_API_URL, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${GROQ_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestPayload),
+        // Увеличиваем таймаут для сетевых запросов
+        signal: AbortSignal.timeout(30000) // 30 секунд
+      });
+      
+      safeLogger.info(`📥 Groq ответ: ${response.status} ${response.statusText}`)
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        
+        safeLogger.error(`Groq API ошибка: ${response.status}`, errorData)
+        
+        // Специальная обработка cfToken ошибки
+        const errorMessage = errorData.error?.message || errorData.message || JSON.stringify(errorData)
+        if (errorMessage.includes('cfToken')) {
+          throw new Error(`Groq аутентификация не удалась (cfToken error). Проверьте корректность GROQ_API_KEY в .env.local`)
+        }
+        
+        // Обработка других ошибок аутентификации
+        if (response.status === 401) {
+          throw new Error(`Groq API: Неверный API ключ. Получите новый ключ на https://console.groq.com`)
+        }
+        
+        if (response.status === 429) {
+          // При превышении лимита ждем и повторяем
+          if (attempt < 3) {
+            safeLogger.warn(`Groq API: Превышен лимит запросов. Повторная попытка через 2 секунды...`);
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            continue;
+          }
+          throw new Error(`Groq API: Превышен лимит запросов. Попробуйте позже.`)
+        }
+        
+        throw new Error(`Groq API error: ${response.status} - ${errorData.error?.message || errorData.message || 'Unknown error'}`)
+      }
+
+      const result = await response.json()
+      const content = result.choices[0]?.message?.content || 'Извините, не удалось получить ответ от Groq Llama.'
+
+      const chatResponse: ChatResponse = {
+        content: content.trim(),
+        mode,
+        processingTime: 0,
+        model: `Groq: ${model}`
+      }
+
+      if (mode === 'deep') {
+        chatResponse.thinking = generateThinkingProcess(message, content)
+      }
+
+      return chatResponse;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      safeLogger.error(`📡 Попытка ${attempt} не удалась:`, lastError.message);
+      
+      // Если это последняя попытка, пробрасываем ошибку
+      if (attempt >= 3) {
+        throw lastError;
+      }
+      
+      // Ждем перед повторной попыткой
+      await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+    }
+  }
   
-  safeLogger.info(`📥 Groq ответ: ${response.status} ${response.statusText}`)
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}))
-    
-    safeLogger.error(`Groq API ошибка: ${response.status}`, errorData)
-    
-    // Специальная обработка cfToken ошибки
-    const errorMessage = errorData.error?.message || errorData.message || JSON.stringify(errorData)
-    if (errorMessage.includes('cfToken')) {
-      throw new Error(`Groq аутентификация не удалась (cfToken error). Проверьте корректность GROQ_API_KEY в .env.local`)
-    }
-    
-    // Обработка других ошибок аутентификации
-    if (response.status === 401) {
-      throw new Error(`Groq API: Неверный API ключ. Получите новый ключ на https://console.groq.com`)
-    }
-    
-    if (response.status === 429) {
-      throw new Error(`Groq API: Превышен лимит запросов. Попробуйте позже.`)
-    }
-    
-    throw new Error(`Groq API error: ${response.status} - ${errorData.error?.message || errorData.message || 'Unknown error'}`)
-  }
-
-  const result = await response.json()
-  const content = result.choices[0]?.message?.content || 'Извините, не удалось получить ответ от Groq Llama.'
-
-  const chatResponse: ChatResponse = {
-    content: content.trim(),
-    mode,
-    processingTime: 0,
-    model: `Groq: ${model}`
-  }
-
-  if (mode === 'deep') {
-    chatResponse.thinking = generateThinkingProcess(message, content)
-  }
-
-  return chatResponse
+  // Это место не должно быть достигнуто
+  throw lastError || new Error('Неизвестная ошибка Groq API');
 }
 
 // Cohere (Command модели)

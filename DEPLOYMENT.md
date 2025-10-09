@@ -13,27 +13,27 @@
 Настройте переменные окружения на сервере развертывания:
 
 ```bash
-# Для Linux/macOS
-export GROQ_API_KEY="ваш_ключ_groq"
-export HUGGINGFACE_TOKEN="ваш_токен_huggingface"
-export TOGETHER_API_KEY="ваш_ключ_together"
-export COHERE_API_KEY="ваш_ключ_cohere"
+# For Linux/macOS
+export GROQ_API_KEY="your_groq_api_key_here"
+export HUGGINGFACE_TOKEN="your_huggingface_token_here"
+export TOGETHER_API_KEY="your_together_api_key_here"
+export COHERE_API_KEY="your_cohere_api_key_here"
 
-# Для Windows (PowerShell)
-$env:GROQ_API_KEY="ваш_ключ_groq"
-$env:HUGGINGFACE_TOKEN="ваш_токен_huggingface"
-$env:TOGETHER_API_KEY="ваш_ключ_together"
-$env:COHERE_API_KEY="ваш_ключ_cohere"
+# For Windows (PowerShell)
+$env:GROQ_API_KEY="your_groq_api_key_here"
+$env:HUGGINGFACE_TOKEN="your_huggingface_token_here"
+$env:TOGETHER_API_KEY="your_together_api_key_here"
+$env:COHERE_API_KEY="your_cohere_api_key_here"
 ```
 
 ### Вариант 2: Использование файла .env на сервере
 Создайте файл `.env` в корне проекта на сервере:
 
 ```env
-GROQ_API_KEY=ваш_ключ_groq
-HUGGINGFACE_TOKEN=ваш_токен_huggingface
-TOGETHER_API_KEY=ваш_ключ_together
-COHERE_API_KEY=ваш_ключ_cohere
+GROQ_API_KEY=your_groq_api_key_here
+HUGGINGFACE_TOKEN=your_huggingface_token_here
+TOGETHER_API_KEY=your_together_api_key_here
+COHERE_API_KEY=your_cohere_api_key_here
 NODE_ENV=production
 ```
 
@@ -51,10 +51,10 @@ NODE_ENV=production
 
 #### Heroku:
 ```bash
-heroku config:set GROQ_API_KEY=ваш_ключ_groq
-heroku config:set HUGGINGFACE_TOKEN=ваш_токен_huggingface
-heroku config:set TOGETHER_API_KEY=ваш_ключ_together
-heroku config:set COHERE_API_KEY=ваш_ключ_cohere
+heroku config:set GROQ_API_KEY=your_groq_api_key_here
+heroku config:set HUGGINGFACE_TOKEN=your_huggingface_token_here
+heroku config:set TOGETHER_API_KEY=your_together_api_key_here
+heroku config:set COHERE_API_KEY=your_cohere_api_key_here
 ```
 
 ## 🧪 Проверка развертывания
@@ -97,8 +97,9 @@ const GROQ_API_KEY = process.env.GROQ_API_KEY;
 ## 📊 Поддерживаемые провайдеры
 
 ### 1. Groq (рекомендуется)
-- Быстрые Llama модели
-- Бесплатно с ограничениями
+- Сверхбыстрые Llama модели (до 30 раз быстрее других провайдеров)
+- Бесплатно с ограничениями (10,000 запросов в день)
+- Автоматическое восстановление при сетевых ошибках
 - Получите ключ: https://console.groq.com
 
 ### 2. Hugging Face
